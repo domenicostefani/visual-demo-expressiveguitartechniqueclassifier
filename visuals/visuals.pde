@@ -45,15 +45,13 @@ boolean autoChangeColor;
 
 
 float MAX_HSV_ANGLE = 360;
-float backgroundColorH = MAX_HSV_ANGLE;
-float backgroundColorS = 100;
-float backgroundColorV = 200;
+
 
 
 class Visualizer {
   // Circle Color
   float colorH = 255;
-  float colorS = 0;
+  float colorS = 100;
   float colorV = MAX_HSV_ANGLE;
   float colorA = 100;
   // Size and number
@@ -82,24 +80,63 @@ class Visualizer {
         float Cx = size*cos(radians(deg+90+increaser*(map(size, 150, 250, -1, 2)))) * amp * (1 + smoother);
         float Cy = size*sin(radians(deg+90+increaser*(map(size, 150, 250, -2, 2)))) * amp * (1 + smoother); 
         
-        //println(increaser);
-        
-        
-        float colorSlowingFactor = 0.2;
-        backgroundColorH = map(sin(increaser*colorSlowingFactor),-1,+1,0,MAX_HSV_ANGLE);
-        //backgroundColorS = map(increaser+offset_g % 20,offset_g,20+offset_g,0,255);
-        //backgroundColorV = map(increaser % 20,0,20,0,255);
         translate(0, 0, smoother*200);
         point(Cx, Cy);
         point(-Cx, Cy);
         popMatrix();
       }
     }
-    increaser = increaser + rotator;
+    increaser += rotator;
+  }
+}
+
+class BackgroundColor {
+  float backgroundColorH = MAX_HSV_ANGLE;
+  float backgroundColorS = 100;
+  float backgroundColorV = 200;
+  
+  int refreshPeriodms = 10;
+  int time;
+  
+  
+  BackgroundColor()
+  {
+    this.time = millis();
+  }
+  
+  BackgroundColor(int backgroundColorH, int backgroundColorS, int backgroundColorV)
+  {
+    super();
+    this.backgroundColorH = backgroundColorH;
+    this.backgroundColorS = backgroundColorS;
+    this.backgroundColorV = backgroundColorV;
+    this.refreshPeriodms = refreshPeriodms;
+  }
+  
+  BackgroundColor(int backgroundColorH, int backgroundColorS, int backgroundColorV,int refreshPeriodms)
+  {
+    super(); // TODO: check why I can't use super(int,int,int) even if if is defined above
+    this.backgroundColorH = backgroundColorH;
+    this.backgroundColorS = backgroundColorS;
+    this.backgroundColorV = backgroundColorV;
+    this.refreshPeriodms = refreshPeriodms;
+  }
+  
+  void draw()
+  {
+    if(millis() - this.time > this.refreshPeriodms)
+    {
+      backgroundColorH = (backgroundColorH + 1)%MAX_HSV_ANGLE;
+      //backgroundColorS = map(increaser+offset_g % 20,offset_g,20+offset_g,0,255);
+      //backgroundColorV = map(increaser % 20,0,20,0,255);
+      this.time = millis();
+    }
+    background(backgroundColorH, backgroundColorS, backgroundColorV, 50);
   }
 }
 
 Visualizer visualizer;
+BackgroundColor backcolor;
 
 
 float amp;
@@ -120,6 +157,8 @@ void setup() {
   int borderAroundCircle = int(1.0/8.0 * smallerSide);
   visualizer.circleSize = smallerSide/2 - borderAroundCircle;
   
+  backcolor = new BackgroundColor(0,200,200,10);
+  
   if (USE_MIDI)
   {
     midi1 = new MidiBus(this, deviceNameOne, deviceNameOne); // Initialize the MIDI devices..
@@ -138,10 +177,11 @@ void setup() {
 
 }
 
+
 //_______________________________________________________________________________________________________________________________
 void draw () {
-  background(backgroundColorH, backgroundColorS, backgroundColorV, 50); // Reset the background for every loop
   //beatDetection();
+  backcolor.draw();
   visualizer.draw();
 }
 
