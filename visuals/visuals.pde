@@ -34,7 +34,7 @@ String deviceNameOne = "Mini [hw:1,0,0]"; // find your MIDI device using MidiBus
 float borderAroundCircles = 25;
 float boxSize = 4;
 
-// Do not modify following classes/ variables!
+
 AudioInput audioIn;
 BeatDetect beat;  
 MidiBus midi1;
@@ -42,28 +42,90 @@ Minim minim;
 FFT fft;
 boolean amplitudeMultiplier;
 boolean autoChangeColor;
-int numberOfCircles = 1;
-float smoothFactor = 1;
-float increaseRotate;
-float multiplier = 3;
-float increaser = 0;
-float alpha = 255;
-float color_h2 = 255;
-float color_s2 = 255;
-float color_v2 = 255;
-float smoother;
-float rotator;
-float color_h;
-float color_s;
-float color_v;
+
+
+float MAX_HSV_ANGLE = 360;
+float backgroundColorH = MAX_HSV_ANGLE;
+float backgroundColorS = 100;
+float backgroundColorV = 200;
+
+
+class Visualizer {
+  // Circle Color
+  float colorH = 255;
+  float colorS = 0;
+  float colorV = MAX_HSV_ANGLE;
+  float colorA = 100;
+  // Size and number
+  int numberOfCircles = 1;
+  int circleSize = 100;
+  float smoothFactor = 1;
+  
+  
+  private float increaser = 0;
+  private float smoother;
+  private float rotator;
+
+  void draw() {
+    if(USE_FFT)
+      fft.forward(audioIn.mix); // Execute a FFT on the increaseroming audio
+    amp = 1;
+    stroke(this.colorH, this.colorS, this.colorV, this.colorA); 
+    translate(width/2, height/2); // Get the middle point to rotate around
+    for (int size = circleSize; size <= int(circleSize+(10*numberOfCircles)); size += borderAroundCircles) {
+      for (int deg = 0; deg <= MAX_HSV_ANGLE; deg++) { // Draw two full reacting circles 
+        pushMatrix();
+        if(USE_FFT)
+            smoother +=  ((fft.getBand(deg+20)/100 - smoother) * smoothFactor); // Smooth out the frequenty amplitude
+        else
+            smoother +=  ((3/100 - smoother) * smoothFactor); // Smooth out the frequenty amplitude
+        float Cx = size*cos(radians(deg+90+increaser*(map(size, 150, 250, -1, 2)))) * amp * (1 + smoother);
+        float Cy = size*sin(radians(deg+90+increaser*(map(size, 150, 250, -2, 2)))) * amp * (1 + smoother); 
+        
+        //println(increaser);
+        
+        
+        float colorSlowingFactor = 0.2;
+        backgroundColorH = map(sin(increaser*colorSlowingFactor),-1,+1,0,MAX_HSV_ANGLE);
+        //backgroundColorS = map(increaser+offset_g % 20,offset_g,20+offset_g,0,255);
+        //backgroundColorV = map(increaser % 20,0,20,0,255);
+        translate(0, 0, smoother*200);
+        point(Cx, Cy);
+        point(-Cx, Cy);
+        popMatrix();
+      }
+    }
+    increaser = increaser + rotator;
+  }
+}
+
+Visualizer visualizer;
+
+
 float amp;
 
 boolean USE_FFT = false;
+boolean USE_MIDI = false;
+
 //_______________________________________________________________________________________________________________________________
 void setup() {
-  colorMode(HSB, 360);
-  fullScreen(OPENGL); // Sketch will always be fullscreen
-  midi1 = new MidiBus(this, deviceNameOne, deviceNameOne); // Initialize the MIDI devices..
+  colorMode(HSB, MAX_HSV_ANGLE);
+  size(640, 400);
+  //fullScreen(OPENGL); // Sketch will always be fullscreen
+  
+  
+  
+  visualizer = new Visualizer();
+  int smallerSide = height < width ? height : width;
+  int borderAroundCircle = int(1.0/8.0 * smallerSide);
+  visualizer.circleSize = smallerSide/2 - borderAroundCircle;
+  
+  if (USE_MIDI)
+  {
+    midi1 = new MidiBus(this, deviceNameOne, deviceNameOne); // Initialize the MIDI devices..
+    //MidiBus.list();
+  }
+    
   minim = new Minim(this); // Create a new Minim class for sound input
   audioIn = minim.getLineIn(Minim.STEREO);  // Get the system audio
   if(USE_FFT)
@@ -72,62 +134,30 @@ void setup() {
   strokeWeight(4);
   rectMode(CENTER);
   
-  //MidiBus.list();
+  
+
 }
 
 //_______________________________________________________________________________________________________________________________
 void draw () {
-  background(color_h, color_s, color_v, 50); // Reset the background for every loop
+  background(backgroundColorH, backgroundColorS, backgroundColorV, 50); // Reset the background for every loop
   //beatDetection();
-  audioVisualizer();
+  visualizer.draw();
 }
 
-//_______________________________________________________________________________________________________________________________
-
-//_______________________________________________________________________________________________________________________________
-void audioVisualizer() {
-  if(USE_FFT)
-    fft.forward(audioIn.mix); // Execute a FFT on the increaseroming audio
-  amp = 1;
-  stroke(color_h2, color_s2, color_v2, alpha); 
-  translate(width/2, height/2); // Get the middle point to rotate around
-  for (int size = int(100*multiplier); size <= int(100*multiplier+(10*numberOfCircles)); size += borderAroundCircles) {
-    for (int deg = 0; deg <= 360; deg++) { // Draw two full reacting circles 
-      pushMatrix();
-      if(USE_FFT)
-          smoother +=  ((fft.getBand(deg+20)/100 - smoother) * smoothFactor); // Smooth out the frequenty amplitude
-      else
-          smoother +=  ((3/100 - smoother) * smoothFactor); // Smooth out the frequenty amplitude
-      float Cx = size*cos(radians(deg+90+increaser*(map(size, 150, 250, -1, 2)))) * amp * (1 + smoother);
-      float Cy = size*sin(radians(deg+90+increaser*(map(size, 150, 250, -2, 2)))) * amp * (1 + smoother); 
-      
-      //println(increaser);
-      
-      
-      color_h = map(sin(increaser),-1,+1,0,360);
-      //color_s = map(increaser+offset_g % 20,offset_g,20+offset_g,0,255);
-      //color_v = map(increaser % 20,0,20,0,255);
-      translate(0, 0, smoother*200);
-      point(Cx, Cy);
-      point(-Cx, Cy);
-      popMatrix();
-    }
-  }
-  increaser = increaser + rotator;
-}
 
 //_______________________________________________________________________________________________________________________________
 void controllerChange(int channel, int controlNumber, int value) { // Get incoming MIDI messages and map them to variables
   //println("Control:",controlNumber);
-  //if (controlNumber == 120) { // If turning knob 0, change the alpha value of the audio visualizer
-  //  alpha = map(value, 0, 127, 0, 255);
+  //if (controlNumber == 120) { // If turning knob 0, change the circleColorA value of the audio visualizer
+  //  circleColorA = map(value, 0, 127, 0, 255);
   //}
   //if (controlNumber == 121) {
-  //  color_h = int(map(value, 0, 127, 0, 255));
+  //  backgroundColorH = int(map(value, 0, 127, 0, 255));
   //}else if (controlNumber == 122) {
-  //  color_s = int(map(value, 0, 127, 0, 255));
+  //  backgroundColorS = int(map(value, 0, 127, 0, 255));
   //}else if (controlNumber == 123) {
-  //  color_v = int(map(value, 0, 127, 0, 255));
+  //  backgroundColorV = int(map(value, 0, 127, 0, 255));
   //}
 
 }
@@ -151,22 +181,22 @@ void noteOn(int channel, int pitch, int volume) { // Get incoming MIDI messages 
   //  }
   //}
   //if (pitch == 14) { // If selected, change color of audio visualizer
-  //  color_h2 = random(255);
-  //  color_s2 = random(255);
-  //  color_v2 = random(255);
+  //  circleColorH = random(255);
+  //  circleColorS = random(255);
+  //  circleColorV = random(255);
   //}
   //if (pitch == 15) { // If selected, change background color automatically
-  //  color_h = random(255);
-  //  color_s = random(255);
-  //  color_v = random(255);
+  //  backgroundColorH = random(255);
+  //  backgroundColorS = random(255);
+  //  backgroundColorV = random(255);
   //}
 }
 
 //_______________________________________________________________________________________________________________________________
 void keyPressed() {
   if (key == 's' || key == 'S') {
-    smoothFactor = 0.01;
-    numberOfCircles = 10;
-    rotator = 0.2;
+    visualizer.smoothFactor = 0.01;
+    visualizer.numberOfCircles = 10;
+    visualizer.rotator = 0.2;
   }  
 }
