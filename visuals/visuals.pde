@@ -20,31 +20,16 @@
 // https://github.com/basboy12/Processing_audio_visualizer
 
 // Import some necessary library's
-import processing.opengl.*;
-import ddf.minim.*;
-import ddf.minim.analysis.*;
-import ddf.minim.signals.*;
+//import processing.opengl.*;
 
-import themidibus.*;  // MIDI
 import oscP5.*;  // OSC
 
 
-// Modify to your needs
-String deviceNameOne = "Mini [hw:1,0,0]"; // find your MIDI device using MidiBus.list() in the setu
-//String deviceNameOne = "Mini [hw:1,0,1]"; // find your MIDI device using MidiBus.list() in the setu
-//String deviceNameOne = "Mini [hw:1,0,2]"; // find your MIDI device using MidiBus.list() in the setu
-//String deviceNameOne = "Mini [hw:1,0,3]"; // find your MIDI device using MidiBus.list() in the setu
-float borderAroundCircles = 25;
-float boxSize = 4;
+
+//import themidibus.*;  // MIDI
+//String midiDeviceName = "Mini [hw:1,0,0]"; // find your MIDI device using MidiBus.list() in the setup
 
 
-AudioInput audioIn;
-BeatDetect beat;  
-MidiBus midi1;
-Minim minim;
-FFT fft;
-boolean amplitudeMultiplier;
-boolean autoChangeColor;
 
 float MAX_HSV_ANGLE = 360;
  //<>//
@@ -60,24 +45,20 @@ class Visualizer {
   int numberOfCircles = 1;
   int circleSize = 100;
   float smoothFactor = 1;
+  float borderAroundCircles = 25;
   
   private float increaser = 0;
   private float smoother;
   private float rotator;
 
   void draw() {
-    if(USE_FFT)
-      fft.forward(audioIn.mix); // Execute a FFT on the increaseroming audio
     amp = 1;
     stroke(this.colorH, this.colorS, this.colorV, this.colorA); 
     translate(width/2, height/2); // Get the middle point to rotate around
     for (int size = circleSize; size <= int(circleSize+(10*numberOfCircles)); size += borderAroundCircles) {
       for (int deg = 0; deg <= MAX_HSV_ANGLE; deg++) { // Draw two full reacting circles 
         pushMatrix();
-        if(USE_FFT)
-            smoother +=  ((fft.getBand(deg+20)/100 - smoother) * smoothFactor); // Smooth out the frequenty amplitude
-        else
-            smoother +=  ((3/100 - smoother) * smoothFactor); // Smooth out the frequenty amplitude
+        smoother +=  ((3/100 - smoother) * smoothFactor); // Smooth out the frequenty amplitude
         float Cx = size*cos(radians(deg+90+increaser*(map(size, 150, 250, -1, 2)))) * amp * (1 + smoother);
         float Cy = size*sin(radians(deg+90+increaser*(map(size, 150, 250, -2, 2)))) * amp * (1 + smoother); 
         
@@ -180,17 +161,13 @@ void setup() {
   
   backcolor = new BackgroundColor();
   
-  if (USE_MIDI)
-  {
-    midi1 = new MidiBus(this, deviceNameOne, deviceNameOne); // Initialize the MIDI devices..
-    //MidiBus.list();
-  }
+  //if (USE_MIDI)
+  //{
+  //  midi1 = new MidiBus(this, deviceNameOne, deviceNameOne); // Initialize the MIDI devices..
+  //  //MidiBus.list();
+  //}
     
-  minim = new Minim(this); // Create a new Minim class for sound input
-  audioIn = minim.getLineIn(Minim.STEREO);  // Get the system audio
-  if(USE_FFT)
-    fft = new FFT(audioIn.bufferSize(), audioIn.sampleRate()); // Create a new FFT class for Fast Fourier Transformation
-  beat = new BeatDetect();
+
   strokeWeight(4);
   rectMode(CENTER);
   
