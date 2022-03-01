@@ -24,7 +24,10 @@ import processing.opengl.*;
 import ddf.minim.*;
 import ddf.minim.analysis.*;
 import ddf.minim.signals.*;
-import themidibus.*;
+
+import themidibus.*;  // MIDI
+import oscP5.*;  // OSC
+
 
 // Modify to your needs
 String deviceNameOne = "Mini [hw:1,0,0]"; // find your MIDI device using MidiBus.list() in the setu
@@ -43,9 +46,8 @@ FFT fft;
 boolean amplitudeMultiplier;
 boolean autoChangeColor;
 
-
 float MAX_HSV_ANGLE = 360;
-
+ //<>//
 
 
 class Visualizer {
@@ -53,12 +55,11 @@ class Visualizer {
   float colorH = 255;
   float colorS = 100;
   float colorV = MAX_HSV_ANGLE;
-  float colorA = 100;
+  float colorA = 300;
   // Size and number
   int numberOfCircles = 1;
   int circleSize = 100;
   float smoothFactor = 1;
-  
   
   private float increaser = 0;
   private float smoother;
@@ -88,21 +89,23 @@ class Visualizer {
     }
     increaser += rotator;
   }
+  
+  void setRotator(float rotator) {
+    this.rotator = rotator;
+  }
 }
 
 class BackgroundColor {
+  boolean autocolor = false;
   float backgroundColorH = MAX_HSV_ANGLE;
-  float backgroundColorS = 100;
-  float backgroundColorV = 200;
+  float backgroundColorS = 200;
+  float backgroundColorV = 0;
   
   int refreshPeriodms = 10;
-  int time;
+  int lastRefresh;
   
   
-  BackgroundColor()
-  {
-    this.time = millis();
-  }
+  BackgroundColor() { this.lastRefresh = millis(); }
   
   BackgroundColor(int backgroundColorH, int backgroundColorS, int backgroundColorV)
   {
@@ -124,40 +127,58 @@ class BackgroundColor {
   
   void draw()
   {
-    if(millis() - this.time > this.refreshPeriodms)
+    if(this.autocolor && millis() - this.lastRefresh > this.refreshPeriodms)
     {
       backgroundColorH = (backgroundColorH + 1)%MAX_HSV_ANGLE;
       //backgroundColorS = map(increaser+offset_g % 20,offset_g,20+offset_g,0,255);
       //backgroundColorV = map(increaser % 20,0,20,0,255);
-      this.time = millis();
+      this.lastRefresh = millis();
     }
-    background(backgroundColorH, backgroundColorS, backgroundColorV, 50);
+    background(backgroundColorH, backgroundColorS, backgroundColorV);
+  }
+  
+  void setColorH(float colorH){
+    if (colorH >= 0 && colorH <= MAX_HSV_ANGLE)
+      this.backgroundColorH = colorH;
+  }
+  
+  void setColorS(float colorS){
+    if (colorS >= 0 && colorS <= MAX_HSV_ANGLE)
+      this.backgroundColorS = colorS;
+  }
+  
+  void setColorV(float colorV){
+    if (colorV >= 0 && colorV <= MAX_HSV_ANGLE)
+      this.backgroundColorV = colorV;
   }
 }
 
 Visualizer visualizer;
 BackgroundColor backcolor;
+PulseEnvelope env;
+OscP5 osc;
+
+Float prediction_threshold = null; // TODO change here to rule out some predictions based on the softmax out value
 
 
 float amp;
 
 boolean USE_FFT = false;
 boolean USE_MIDI = false;
-
+int default_circle_size = 0;
 //_______________________________________________________________________________________________________________________________
 void setup() {
   colorMode(HSB, MAX_HSV_ANGLE);
-  size(640, 400);
-  //fullScreen(OPENGL); // Sketch will always be fullscreen
-  
-  
+  //size(640, 400);
+  fullScreen(OPENGL); // Sketch will always be fullscreen
   
   visualizer = new Visualizer();
   int smallerSide = height < width ? height : width;
   int borderAroundCircle = int(1.0/8.0 * smallerSide);
-  visualizer.circleSize = smallerSide/2 - borderAroundCircle;
+  default_circle_size = smallerSide/2 - borderAroundCircle;
+  visualizer.circleSize = default_circle_size;
   
-  backcolor = new BackgroundColor(0,200,200,10);
+  backcolor = new BackgroundColor();
   
   if (USE_MIDI)
   {
@@ -173,70 +194,79 @@ void setup() {
   strokeWeight(4);
   rectMode(CENTER);
   
+  osc = new OscP5(this, 9001);
   
-
+  env = new PulseEnvelope();
+  
+  
+  visualizer.smoothFactor = 0.01;
+  visualizer.numberOfCircles = 10;
+  visualizer.rotator = 0.2;
 }
 
-
-//_______________________________________________________________________________________________________________________________
-void draw () {
-  //beatDetection();
+float currentHue = 0;
+void draw () {  
+  env.loop();
+  
+  float envval = env.getValue();
+  backcolor.setColorV(50 + 200*envval);
+  visualizer.setRotator(0.3 + 0.2*envval);
+  //visualizer.circleSize = int(default_circle_size + (30.0*envval));
+  //println(env.getValue());
+  
   backcolor.draw();
   visualizer.draw();
 }
 
 
 //_______________________________________________________________________________________________________________________________
-void controllerChange(int channel, int controlNumber, int value) { // Get incoming MIDI messages and map them to variables
-  //println("Control:",controlNumber);
-  //if (controlNumber == 120) { // If turning knob 0, change the circleColorA value of the audio visualizer
-  //  circleColorA = map(value, 0, 127, 0, 255);
-  //}
-  //if (controlNumber == 121) {
-  //  backgroundColorH = int(map(value, 0, 127, 0, 255));
-  //}else if (controlNumber == 122) {
-  //  backgroundColorS = int(map(value, 0, 127, 0, 255));
-  //}else if (controlNumber == 123) {
-  //  backgroundColorV = int(map(value, 0, 127, 0, 255));
-  //}
-
-}
-
-//_______________________________________________________________________________________________________________________________
-void noteOn(int channel, int pitch, int volume) { // Get incoming MIDI messages and map them to variables
-  println("Note:",pitch);
-
-  //if (pitch == 12) { // If selected, change background color automatically
-  //  if (autoChangeColor) {
-  //    autoChangeColor = false;
-  //  } else {
-  //    autoChangeColor =true;
-  //  }
-  //}
-  //if (pitch == 13) {
-  //  if (amplitudeMultiplier) {
-  //    amplitudeMultiplier = false;
-  //  } else {
-  //    amplitudeMultiplier =true;
-  //  }
-  //}
-  //if (pitch == 14) { // If selected, change color of audio visualizer
-  //  circleColorH = random(255);
-  //  circleColorS = random(255);
-  //  circleColorV = random(255);
-  //}
-  //if (pitch == 15) { // If selected, change background color automatically
-  //  backgroundColorH = random(255);
-  //  backgroundColorS = random(255);
-  //  backgroundColorV = random(255);
-  //}
-}
-
-//_______________________________________________________________________________________________________________________________
 void keyPressed() {
   if (key == 's' || key == 'S') {
-    visualizer.smoothFactor = 0.01;
+    visualizer.smoothFactor = 1;
     visualizer.numberOfCircles = 10;
     visualizer.rotator = 0.2;
   }  
+}
+
+void predictedClass(int prediction) {
+  println("predicted class",prediction); //<>//
+  float colors = 360.0 * prediction / 8.0;
+  backcolor.setColorH(colors);
+  env.play();
+}
+
+/**
+ *  Receive and handle OSC messages that describe the class of expressive guitar technique predicted
+ *  Types of messages, depending on classifier configuration:
+ *   a. "/guitarClassifier/class" message with 8 float values, indicating the 8 outputs of the last softmax layer of the neural network (some kind of confidence values)
+ *   b. "/guitarClassifier/class" message with 1 int value, indicating the predicted class
+ *   c. "/guitarClassifier/class" message with 1 int value, indicating the predicted class, and 1 float value containing the corresponding softmax output value
+ */
+void oscEvent(OscMessage theOscMessage) {
+  println("Received OSC: "+theOscMessage+" - ");
+  if (theOscMessage.checkAddrPattern("/guitarClassifier/class")==true) {
+    if (theOscMessage.checkTypetag("ffffffff")) {  // (a) softmax output
+      float[] softmaxOut = new float[8];
+      for (int i=0;i<8;++i)
+        softmaxOut[i] = theOscMessage.get(i).floatValue();
+      // Argmax
+      int maxclass = 0;
+      for (int i=0;i<8;++i)
+        if (softmaxOut[i] > softmaxOut[maxclass])
+          maxclass = i;
+      // Threshold
+      if (prediction_threshold == null || softmaxOut[maxclass] > prediction_threshold)
+        predictedClass(maxclass);
+    } 
+    else if (theOscMessage.checkTypetag("i"))      // (b) Class value [1-8]
+    {
+      predictedClass(theOscMessage.get(0).intValue());        //<>//
+    } 
+    else if (theOscMessage.checkTypetag("if"))     // (c) Class and output of softmax for that class
+    { 
+      // Threshold
+      if (prediction_threshold == null || theOscMessage.get(1).floatValue() > prediction_threshold)
+        predictedClass(theOscMessage.get(0).intValue());    
+    }
+  }
 }
