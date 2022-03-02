@@ -19,7 +19,7 @@ or
 `/guitarClassifier/class ffffffff <conf.class0> <conf.class1> <conf.class2> <conf.class3> <conf.class4> <conf.class5> <conf.class6> <conf.class7> `  
 
 
-![Architecture Diagram of the Technique Classifier](https://github.com/domenicostefani/guitar-visuals/blob/main/docs/images/architecture-diagram.jpg)
+![Architecture Diagram of the Technique Classifier](https://github.com/domenicostefani/guitar-visuals/blob/main/docs/images/architecture-diagram.png)
 
 
 Inspired by [basboy12's Processing_audio_visualizer](https://github.com/basboy12/Processing_audio_visualizer).  
